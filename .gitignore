@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Build output
+build/
+dist/
+
+# Virtual environment
+.venv/
+venv/
+
+# Database
+data/database/*.db
+data/database/*.db-shm
+data/database/*.db-wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# API Keys
+.env
+
+# Agent artifacts
+.superpowers/

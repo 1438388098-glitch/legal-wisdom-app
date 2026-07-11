@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>法律智库 · 个人法条库</title>
+<style>
+/* === 极简衬线学术风 === */
+:root {
+  --bg: #ffffff;
+  --text: #1a1a1a;
+  --text-secondary: #666;
+  --text-muted: #aaa;
+  --border: #e8e8e8;
+  --accent: #8B4513;
+  --accent-light: rgba(139,69,19,0.08);
+  --accent-bg: #fafafa;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", "SimSun", serif;
+  font-size: 14px; color: var(--text); background: var(--bg);
+  height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+}
+/* Header */
+#header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 20px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#header h1 { font-size: 18px; font-weight: 600; letter-spacing: 2px; white-space: nowrap; }
+#header .sub { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+#search-row { display: flex; flex:1; gap:8px; align-items:center; }
+#search-input {
+  flex:1; font-family: inherit; font-size:14px; padding:8px 14px;
+  border:1px solid var(--border); border-radius:2px; outline:none;
+  background: var(--bg); color: var(--text);
+}
+#search-input:focus { border-color: var(--accent); }
+#search-btn, #clear-btn {
+  font-family: "Inter","Segoe UI",sans-serif; font-size:13px;
+  padding:7px 18px; border:1px solid var(--accent); border-radius:2px;
+  background:transparent; color:var(--accent); cursor:pointer; white-space:nowrap;
+}
+#search-btn:hover, #clear-btn:hover { background:var(--accent); color:#fff; }
+#search-btn:disabled { opacity:0.5; cursor:default; border-color:#ccc; color:#ccc; }
+#clear-btn { border-color:var(--border); color:var(--text-secondary); }
+#clear-btn:hover { border-color:var(--text); color:var(--text); }
+#home-link {
+  font-family:"Inter","Segoe UI",sans-serif; font-size:12px; color:var(--accent);
+  text-decoration:none; cursor:pointer; white-space:nowrap; padding:4px 8px;
+  border:1px solid transparent; border-radius:2px;
+}
+#home-link:hover { border-color:var(--accent); }
+
+/* Main 3-column */
+#main { display:flex; flex:1; overflow:hidden; }
+#sidebar { width:280px; min-width:200px; border-right:1px solid var(--border); overflow-y:auto; flex-shrink:0; }
+#sidebar .section-title {
+  font-family:"Inter","Segoe UI",sans-serif; font-size:11px; font-weight:600;
+  color:var(--text-muted); letter-spacing:1px; text-transform:uppercase;
+  padding:16px 16px 6px; border-bottom:1px solid var(--border);
+}
+.tree-root { cursor:pointer; padding:10px 16px 4px; font-size:13px; color:var(--accent); font-weight:500; display:none; }
+.tree-node { padding:3px 16px 3px 24px; cursor:pointer; font-size:13px; color:var(--text-secondary); }
+.tree-node:hover { background:var(--accent-light); }
+.tree-node.active { background:var(--accent-light); color:var(--accent); font-weight:500; }
+.tree-chapter { padding:6px 16px 3px 12px; font-size:13px; color:var(--text); font-weight:500; cursor:pointer; }
+.tree-chapter:hover { background:var(--accent-light); }
+.tree-chapter .toggle { color:var(--text-muted); margin-right:4px; font-size:11px; }
+.tree-article { padding:2px 16px 2px 30px; font-size:13px; color:var(--text-secondary); cursor:pointer; display:none; }
+.tree-article:hover { background:var(--accent-light); color:var(--text); }
+.tree-article.active { background:var(--accent-light); color:var(--accent); font-weight:500; }
+.tree-doc-header {
+  padding:8px 16px 4px; font-size:14px; font-weight:600; color:var(--text);
+  border-bottom:1px solid var(--border); display:none;
+}
+
+#center { flex:1; overflow-y:auto; overflow-x:hidden; min-width:400px; }
+#right {
+  width:320px; min-width:240px; border-left:1px solid var(--border);
+  overflow-y:auto; flex-shrink:0; display:flex; flex-direction:column;
+}
+#right .section-title {
+  font-family:"Inter","Segoe UI",sans-serif; font-size:11px; font-weight:600;
+  color:var(--text-muted); letter-spacing:1px; text-transform:uppercase;
+  padding:12px 16px; border-bottom:1px solid var(--border);
+}
+.compare-dropzone {
+  flex:1; display:flex; flex-direction:column; gap:8px; padding:8px;
+}
+.compare-item {
+  border:1px solid var(--border); padding:10px; position:relative;
+  min-height:60px; font-size:13px; line-height:1.6;
+}
+.compare-item .close-btn {
+  position:absolute; top:4px; right:4px; cursor:pointer; font-size:14px;
+  color:var(--text-muted); background:none; border:none;
+}
+.compare-item .close-btn:hover { color:var(--text); }
+.compare-item .compare-header {
+  font-weight:500; font-size:12px; color:var(--accent);
+  border-bottom:1px solid var(--border); padding-bottom:4px; margin-bottom:6px;
+}
+.compare-placeholder {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  color:var(--text-muted); font-size:13px; border:1px dashed var(--border);
+  border-radius:2px; margin:8px; padding:20px; text-align:center;
+}
+
+/* Search results */
+#results-area { padding:0; }
+#results-header {
+  font-family:"Inter","Segoe UI",sans-serif; font-size:12px; color:var(--text-muted);
+  padding:12px 20px 8px; border-bottom:1px solid var(--border);
+}
+.result-item {
+  padding:12px 20px; border-bottom:1px solid #f0f0f0; cursor:pointer;
+}
+.result-item:hover { background:var(--accent-light); }
+.result-item .ri-title { font-size:14px; font-weight:500; color:var(--text); }
+.result-item .ri-meta { font-size:11px; color:var(--text-muted); margin-top:2px; }
+.result-item .ri-snippet { font-size:13px; color:var(--text-secondary); margin-top:4px; line-height:1.5; }
+.result-item .ri-snippet em { font-style:normal; background:#f5ebe0; padding:0 1px; }
+.loading { text-align:center; color:var(--text-muted); padding:40px; font-size:13px; }
+.no-results { text-align:center; color:var(--text-muted); padding:60px 20px; font-size:14px; line-height:2; }
+.pagination { text-align:center; padding:16px; }
+.pagination button {
+  font-family:"Inter","Segoe UI",sans-serif; font-size:12px;
+  padding:4px 14px; border:1px solid var(--border); border-radius:2px;
+  background:transparent; cursor:pointer; color:var(--text-secondary);
+}
+.pagination button:hover { border-color:var(--accent); color:var(--accent); }
+
+/* Article reader */
+#reader-area { padding:24px 32px; max-width:720px; margin:0 auto; display:none; }
+#reader-area .doc-title { font-size:20px; font-weight:600; margin-bottom:4px; }
+#reader-area .doc-meta { font-size:12px; color:var(--text-muted); margin-bottom:16px; }
+#reader-area .chapter-heading { font-size:16px; font-weight:600; color:var(--text); margin:20px 0 10px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+#reader-area .article-block { padding:10px 0; line-height:1.8; }
+#reader-area .article-block.highlighted { background:rgba(139,69,19,0.06); border-left:3px solid var(--accent); padding-left:12px; }
+#reader-area .article-num { font-size:15px; font-weight:600; color:var(--accent); margin-bottom:4px; cursor:pointer; }
+#reader-area .article-body { font-size:15px; color:var(--text); }
+#reader-area .article-body .hl { background:#f5ebe0; padding:0 2px; cursor:pointer; }
+#reader-area .article-actions { margin-top:4px; font-size:12px; }
+#reader-area .article-actions a { color:var(--accent); cursor:pointer; margin-right:12px; text-decoration:none; }
+#reader-area .article-actions a:hover { text-decoration:underline; }
+.reader-nav { display:flex; justify-content:space-between; margin:20px 0; font-size:13px; }
+.reader-nav a { color:var(--accent); cursor:pointer; text-decoration:none; }
+.reader-nav a:hover { text-decoration:underline; }
+.reader-nav .disabled { color:var(--text-muted); cursor:default; }
+
+/* Home */
+#home-area { padding:60px 40px; max-width:720px; margin:0 auto; display:none; }
+#home-area h2 { text-align:center; font-size:24px; font-weight:600; letter-spacing:2px; margin-bottom:4px; }
+#home-area .home-sub { text-align:center; color:var(--text-muted); font-size:13px; margin-bottom:32px; }
+.home-cat { margin-bottom:20px; }
+.home-cat-title { font-size:15px; font-weight:600; color:var(--accent); cursor:pointer; margin-bottom:6px; display:inline-block; }
+.home-cat-title:hover { text-decoration:underline; }
+.home-cat-count { font-size:11px; color:var(--text-muted); }
+.home-cat-item { font-size:13px; color:var(--text-secondary); padding:2px 0; cursor:pointer; }
+.home-cat-item:hover { color:var(--accent); }
+.home-cat-items { margin-top:4px; }
+
+/* AI Panel */
+#ai-bar {
+  flex-shrink:0; border-top:1px solid var(--border); position:relative;
+}
+#ai-bar .ai-controls { display:flex; gap:8px; align-items:center; padding:8px 16px; }
+#ai-bar input { flex:1; font-family:inherit; font-size:14px; padding:8px 12px; border:1px solid var(--border); border-radius:2px; outline:none; }
+#ai-bar input:focus { border-color:var(--accent); }
+#ai-ask-btn, #ai-context-btn {
+  font-family:"Inter","Segoe UI",sans-serif; font-size:13px; padding:7px 16px;
+  border-radius:2px; cursor:pointer; white-space:nowrap;
+}
+#ai-ask-btn { border:1px solid var(--accent); background:transparent; color:var(--accent); }
+#ai-ask-btn:hover { background:var(--accent); color:#fff; }
+#ai-ask-btn:disabled { opacity:0.5; }
+#ai-context-btn { border:1px solid var(--accent); background:var(--accent); color:#fff; }
+#ai-context-btn:hover { background:#1a1a1a; border-color:#1a1a1a; }
+#ai-context-btn:disabled { opacity:0.5; }
+#ai-output {
+  max-height:200px; overflow-y:auto; padding:8px 16px; display:none;
+  font-size:14px; line-height:1.7; background:var(--accent-bg);
+  border-bottom:1px solid var(--border);
+}
+#ai-toggle {
+  font-family:"Inter","Segoe UI",sans-serif; font-size:11px;
+  background:transparent; border:1px solid var(--border); border-radius:2px;
+  padding:3px 10px; cursor:pointer; color:var(--text-muted); white-space:nowrap;
+}
+#ai-toggle:hover { color:var(--text); }
+#ai-status { font-size:11px; color:var(--text-muted); }
+
+/* Reference panel */
+#ref-panel { display:none; padding:12px 16px; background:var(--accent-bg); border-bottom:1px solid var(--border); }
+#ref-panel .ref-title { font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:1px; margin-bottom:6px; }
+#ref-panel a { display:inline-block; font-size:12px; color:var(--accent); cursor:pointer; margin:2px 6px 2px 0; text-decoration:none; }
+#ref-panel a:hover { text-decoration:underline; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-thumb { background:#d0d0d0; border-radius:3px; }
+
+/* Modal */
+.modal-overlay {
+  display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,0.3); z-index:100; justify-content:center; align-items:center;
+}
+.modal-overlay.show { display:flex; }
+.modal {
+  background:#fff; border:1px solid var(--border); padding:24px; min-width:360px;
+  max-width:480px; box-shadow:0 4px 20px rgba(0,0,0,0.1);
+}
+.modal h3 { font-size:16px; margin-bottom:12px; }
+.modal label { font-size:13px; display:block; margin-top:10px; color:var(--text-secondary); }
+.modal input, .modal textarea, .modal select {
+  width:100%; font-family:inherit; font-size:13px; padding:6px 10px;
+  border:1px solid var(--border); border-radius:2px; margin-top:4px;
+}
+.modal textarea { min-height:60px; resize:vertical; }
+.modal .btn-row { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+.modal .btn-row button {
+  font-family:"Inter","Segoe UI",sans-serif; font-size:13px; padding:6px 18px;
+  border:1px solid var(--border); border-radius:2px; cursor:pointer; background:transparent;
+}
+.modal .btn-row button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+.modal .btn-row button.primary:hover { background:#1a1a1a; border-color:#1a1a1a; }
+.modal .tag-select { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+.modal .tag-select span {
+  padding:3px 10px; border:1px solid var(--border); border-radius:2px;
+  font-size:12px; cursor:pointer; color:var(--text-secondary);
+}
+.modal .tag-select span.selected { background:var(--accent-light); color:var(--accent); border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+  <h1>法律智库</h1>
+  <span class="sub">个人法条库</span>
+  <div id="search-row">
+    <input id="search-input" placeholder="搜索法条，如「行政许可法 第三十八条」「行政处罚」「正当防卫」……" autofocus>
+    <a id="home-link" onclick="showHome()">首页</a>
+    <button id="clear-btn" onclick="clearSearch()">清除</button>
+    <button id="search-btn" onclick="doSearch()">搜索</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <!-- Left: Tree -->
+  <div id="sidebar">
+    <div class="section-title">目录</div>
+    <div id="tree-area"></div>
+  </div>
+
+  <!-- Center -->
+  <div id="center">
+    <div id="home-area"></div>
+    <div id="results-area">
+      <div id="results-header">输入关键词开始搜索</div>
+      <div id="results-list"></div>
+    </div>
+    <div id="reader-area"></div>
+    <div id="ref-panel"></div>
+  </div>
+
+  <!-- Right: Compare -->
+  <div id="right">
+    <div class="section-title">法条对比</div>
+    <div class="compare-dropzone" id="compare-zone">
+      <div class="compare-placeholder">从左侧或中间栏<br>拖拽法条到此处对比</div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Bar -->
+<div id="ai-bar">
+  <div id="ai-output"></div>
+  <div class="ai-controls">
+    <span id="ai-status"></span>
+    <input id="ai-input" placeholder="输入法律问题……">
+    <button id="ai-ask-btn" onclick="askAI()">发送</button>
+    <button id="ai-context-btn" onclick="askAIWithContext()">结合当前法条</button>
+    <button id="ai-toggle" onclick="toggleAI()">收起</button>
+  </div>
+</div>
+
+<!-- Bookmark Modal -->
+<div class="modal-overlay" id="bookmark-modal">
+  <div class="modal">
+    <h3>收藏法条</h3>
+    <label>标签</label>
+    <div class="tag-select">
+      <span data-tag="常考" onclick="toggleTag(this)">常考</span>
+      <span data-tag="易混" onclick="toggleTag(this)">易混</span>
+      <span data-tag="新增" onclick="toggleTag(this)">新增</span>
+      <span data-tag="重点" onclick="toggleTag(this)">重点</span>
+    </div>
+    <input id="bookmark-tags" placeholder="自定义标签，逗号分隔">
+    <label>备注</label>
+    <textarea id="bookmark-note" placeholder="如：本条与刑法第20条容易混淆……"></textarea>
+    <div class="btn-row">
+      <button onclick="closeBookmarkModal()">取消</button>
+      <button class="primary" onclick="saveBookmark()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+const STATE = {
+  searchQuery: '',
+  searchPage: 1,
+  currentDocId: null,      // documents.id
+  currentArticleId: null,  // articles.id
+  currentTreeData: null,   // {title, chapters}
+  compareArticles: [],     // [{id, article_num, doc_title, content}]
+  bookmarks: [],
+  highlights: [],
+};
+
+// ============================================================
+// Utility
+// ============================================================
+async function api(url, opts = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (opts.raw) return res;
+  return res.json();
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ============================================================
+// Home
+// ============================================================
+async function showHome() {
+  hideAll();
+  document.getElementById('home-area').style.display = 'block';
+  document.getElementById('reader-area').style.display = 'none';
+  document.getElementById('tree-area').innerHTML = '';
+  STATE.currentDocId = null;
+  STATE.currentTreeData = null;
+
+  const docs = await api('/api/documents');
+  const cats = {};
+  for (const d of docs) {
+    if (!cats[d.category]) cats[d.category] = [];
+    cats[d.category].push(d);
+  }
+
+  let html = '<h2>法律智库</h2><p class="home-sub">个人法条库 · ' + docs.length + ' 部法律法规</p>';
+  for (const [cat, items] of Object.entries(cats)) {
+    html += '<div class="home-cat">';
+    html += `<span class="home-cat-title">${esc(cat)}</span> <span class="home-cat-count">（${items.length} 部）</span>`;
+    html += '<div class="home-cat-items">';
+    for (const d of items.slice(0, 8)) {
+      html += `<div class="home-cat-item" onclick="openDocument(${d.id})">${esc(d.title)}</div>`;
+    }
+    html += '</div></div>';
+  }
+  document.getElementById('home-area').innerHTML = html;
+}
+
+// ============================================================
+// Search
+// ============================================================
+async function doSearch(page) {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+
+  STATE.searchQuery = q;
+  STATE.searchPage = page || 1;
+  hideAll();
+
+  const res = document.getElementById('results-area');
+  const list = document.getElementById('results-list');
+  const header = document.getElementById('results-header');
+  res.style.display = 'block';
+  list.innerHTML = '<div class="loading">搜索中……</div>';
+
+  const data = await api(`/api/search?q=${encodeURIComponent(q)}&page=${STATE.searchPage}`);
+  header.textContent = `搜索「${q}」— 共 ${data.total} 条结果`;
+
+  if (!data.results.length) {
+    list.innerHTML = '<div class="no-results">未找到相关结果，请尝试其他关键词</div>';
+    return;
+  }
+
+  let h = '';
+  for (const r of data.results) {
+    h += `<div class="result-item" onclick="openArticle(${r.id}, '${esc(r.doc_title)}')">`;
+    h += `<div class="ri-title">${esc(r.doc_title)}</div>`;
+    h += `<div class="ri-meta">${esc(r.article_num)}${r.chapter_heading ? ' · ' + esc(r.chapter_heading) : ''}</div>`;
+    h += `<div class="ri-snippet">${esc(r.snippet)}</div>`;
+    h += '</div>';
+  }
+
+  // Pagination
+  const totalPages = Math.ceil(data.total / 50);
+  if (totalPages > 1) {
+    h += '<div class="pagination">';
+    h += `<button onclick="doSearch(${STATE.searchPage - 1})" ${STATE.searchPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+    h += ` <span style="font-size:12px;color:#aaa;"> ${STATE.searchPage} / ${totalPages} </span> `;
+    h += `<button onclick="doSearch(${STATE.searchPage + 1})" ${STATE.searchPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
+    h += '</div>';
+  }
+
+  list.innerHTML = h;
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('results-list').innerHTML = '';
+  document.getElementById('results-header').textContent = '输入关键词开始搜索';
+  showHome();
+}
+
+// ============================================================
+// Document Tree
+// ============================================================
+async function openDocument(docId) {
+  try {
+  hideAll();
+  const ra = document.getElementById('reader-area');
+  ra.style.display = 'block';
+  ra.innerHTML = '<div class="loading">加载中……</div>';
+  STATE.currentDocId = docId;
+
+  // Fetch tree + articles in parallel
+  const [treeData, articles] = await Promise.all([
+    api(`/api/documents/${docId}/tree`),
+    api(`/api/documents/${docId}/articles`),
+  ]);
+  STATE.currentTreeData = treeData;
+
+  // Render tree
+  const treeArea = document.getElementById('tree-area');
+  let th = `<div class="tree-doc-header">${esc(treeData.title)}</div>`;
+  for (const ch of treeData.chapters) {
+    th += `<div class="tree-chapter" onclick="toggleChapter(this)">`;
+    th += `<span class="toggle">▼</span> ${esc(ch.heading)}`;
+    th += '</div>';
+    th += `<div class="tree-articles" data-chapter="${ch.id}" style="display:block;">`;
+    for (const a of ch.articles) {
+      th += `<div class="tree-article" data-article="${a.id}" onclick="scrollToArticle(${a.id})">${esc(a.article_num)}</div>`;
+    }
+    th += '</div>';
+  }
+  treeArea.innerHTML = th;
+
+  // Render full document text
+  if (!articles || articles.length === 0) {
+    ra.innerHTML = '<p style="padding:40px;text-align:center;color:#aaa;">本文无结构化条文</p>';
+    return;
+  }
+
+  let html = `<div class="doc-title">${esc(treeData.title)}</div>`;
+  let lastChapter = '';
+  for (const a of articles) {
+    if (a.chapter_heading && a.chapter_heading !== lastChapter) {
+      lastChapter = a.chapter_heading;
+      const chId = 'ch-' + a.chapter_heading.replace(/[\s]/g,'_').replace(/[^\w一-鿿]/g,'');
+      html += `<div class="chapter-heading" id="${chId}" data-chapter="${esc(a.chapter_heading)}">${esc(a.chapter_heading)}</div>`;
+    }
+    html += `<div class="article-block" data-article="${a.id}" id="art-${a.id}">`;
+    html += `<div class="article-num">${esc(a.article_num)}</div>`;
+    html += `<div class="article-body">${esc(a.content)}</div>`;
+    html += `<div class="article-actions">`;
+    html += `<a onclick="addToCompare(${a.id},'${esc(a.article_num)}','${esc(treeData.title)}')">+ 加入对比</a>`;
+    html += `<a onclick="showBookmarkModal(${a.id})">⭐ 收藏</a>`;
+    html += '</div></div>';
+  }
+  ra.innerHTML = html;
+
+  // Record history for first article
+  if (articles.length > 0) {
+    STATE.currentArticleId = articles[0].id;
+    api('/api/history', { method: 'POST', body: JSON.stringify({ article_id: articles[0].id }) });
+  }
+  } catch(e) {
+    document.getElementById('reader-area').innerHTML = `<div style="padding:40px;color:red;">加载失败: ${esc(e.message)}<br>${esc(e.stack||'')}</div>`;
+  }
+}
+
+function scrollToArticle(articleId) {
+  const el = document.getElementById(`art-${articleId}`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Highlight
+    document.querySelectorAll('.article-block.highlighted').forEach(e => e.classList.remove('highlighted'));
+    el.classList.add('highlighted');
+    // Tree highlight
+    document.querySelectorAll('.tree-article.active').forEach(e => e.classList.remove('active'));
+    const treeEl = document.querySelector(`.tree-article[data-article="${articleId}"]`);
+    if (treeEl) treeEl.classList.add('active');
+    STATE.currentArticleId = articleId;
+    api('/api/history', { method: 'POST', body: JSON.stringify({ article_id: articleId }) });
+  }
+}
+
+function toggleChapter(el) {
+  const toggle = el.querySelector('.toggle');
+  const articlesDiv = el.nextElementSibling;
+  if (articlesDiv.style.display === 'block') {
+    articlesDiv.style.display = 'none';
+    toggle.textContent = '▶';
+  } else {
+    articlesDiv.style.display = 'block';
+    toggle.textContent = '▼';
+    // Scroll to first article of chapter
+    const firstArt = articlesDiv.querySelector('.tree-article');
+    if (firstArt) {
+      const artId = firstArt.dataset.article;
+      if (artId) scrollToArticle(parseInt(artId));
+    }
+  }
+}
+
+// ============================================================
+// Article Reader
+// ============================================================
+async function openArticle(articleId, docTitle) {
+  STATE.currentArticleId = articleId;
+  hideAll();
+  const ra = document.getElementById('reader-area');
+  ra.style.display = 'block';
+  ra.innerHTML = '<div class="loading">加载中……</div>';
+
+  try {
+    const data = await api(`/api/articles/${articleId}`);
+    if (data.error) {
+      ra.innerHTML = `<div style="padding:40px;color:red;">加载失败: ${esc(data.error)}<br>article_id=${articleId}</div>`;
+      return;
+    }
+    if (!data || !data.content) {
+      ra.innerHTML = `<div style="padding:40px;color:#666;">本文无内容: ${esc(JSON.stringify(data))}</div>`;
+      return;
+    }
+
+    const dt = esc(data.doc_title || '');
+    const cn = esc(data.article_num || '');
+    const ch = esc(data.chapter_heading || '');
+    const ct = esc(data.content || '');
+
+    let html = `<div class="doc-title">${dt}</div>`;
+    html += `<div class="doc-meta">${ch}</div>`;
+    html += '<div class="reader-nav">';
+    if (data.prev_id) html += `<a onclick="openArticle(${data.prev_id},'${dt}')">← ${esc(data.prev_num||'')}</a>`;
+    else html += '<span class="disabled">←</span>';
+    if (data.next_id) html += `<a onclick="openArticle(${data.next_id},'${dt}')">${esc(data.next_num||'')} →</a>`;
+    else html += '<span class="disabled">→</span>';
+    html += '</div>';
+    html += `<div class="article-block"><div class="article-num">${cn}</div><div class="article-body">${ct}</div>`;
+    html += `<div class="article-actions"><a onclick="addToCompare(${data.id},'${cn}','${dt}')">+ 加入对比</a>`;
+    html += `<a onclick="showBookmarkModal(${data.id})">⭐ 收藏</a></div></div>`;
+    html += '<div class="reader-nav">';
+    if (data.prev_id) html += `<a onclick="openArticle(${data.prev_id},'${dt}')">← ${esc(data.prev_num||'')}</a>`;
+    if (data.next_id) html += `<a onclick="openArticle(${data.next_id},'${dt}')">${esc(data.next_num||'')} →</a>`;
+    html += '</div>';
+
+    ra.innerHTML = html;
+    document.getElementById('center').scrollTop = 0;
+
+    api('/api/history', { method: 'POST', body: JSON.stringify({ article_id: articleId }) });
+    loadReferences(articleId);
+
+    document.querySelectorAll('.tree-article.active').forEach(el => el.classList.remove('active'));
+    const treeEl = document.querySelector(`.tree-article[data-article="${articleId}"]`);
+    if (treeEl) {
+      treeEl.classList.add('active');
+      const parent = treeEl.closest('.tree-articles');
+      if (parent) {
+        parent.style.display = 'block';
+        const ch2 = parent.previousElementSibling;
+        if (ch2 && ch2.querySelector('.toggle')) ch2.querySelector('.toggle').textContent = '▼';
+      }
+    }
+    if (STATE.currentDocId !== data.doc_id) {
+      STATE.currentDocId = data.doc_id;
+      openDocument(data.doc_id);
+    }
+  } catch(e) {
+    ra.innerHTML = `<div style="padding:40px;color:red;">渲染错误: ${esc(e.message)}</div>`;
+  }
+}
+
+// ============================================================
+// References
+// ============================================================
+async function loadReferences(articleId) {
+  const refs = await api(`/api/articles/${articleId}/references`);
+  const panel = document.getElementById('ref-panel');
+  if (refs.length === 0) { panel.style.display = 'none'; return; }
+  let h = '<div class="ref-title">关联法条</div>';
+  const seen = new Set();
+  for (const r of refs) {
+    const key = r.doc_title + r.article_num;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    h += `<a onclick="openArticle(${r.id}, '${esc(r.doc_title)}')">${esc(r.doc_title)} ${esc(r.article_num)}</a>`;
+  }
+  panel.innerHTML = h;
+  panel.style.display = 'block';
+}
+
+// ============================================================
+// Compare
+// ============================================================
+function addToCompare(articleId, articleNum, docTitle) {
+  if (STATE.compareArticles.length >= 3) {
+    alert('最多对比 3 条法条');
+    return;
+  }
+  // Fetch content
+  api(`/api/articles/${articleId}`).then(data => {
+    STATE.compareArticles.push({
+      id: data.id,
+      article_num: data.article_num,
+      doc_title: data.doc_title,
+      content: data.content,
+    });
+    renderCompare();
+  });
+}
+
+function removeCompare(index) {
+  STATE.compareArticles.splice(index, 1);
+  renderCompare();
+}
+
+function renderCompare() {
+  const zone = document.getElementById('compare-zone');
+  if (STATE.compareArticles.length === 0) {
+    zone.innerHTML = '<div class="compare-placeholder">从左侧或中间栏<br>拖拽法条到此处对比</div>';
+    return;
+  }
+  let h = '';
+  for (let i = 0; i < STATE.compareArticles.length; i++) {
+    const a = STATE.compareArticles[i];
+    h += `<div class="compare-item">`;
+    h += `<button class="close-btn" onclick="removeCompare(${i})">×</button>`;
+    h += `<div class="compare-header">${esc(a.doc_title)} · ${esc(a.article_num)}</div>`;
+    h += `<div>${esc(a.content.slice(0, 300))}</div>`;
+    h += '</div>';
+  }
+  // Dropzone
+  if (STATE.compareArticles.length < 3) {
+    h += '<div class="compare-placeholder" style="min-height:40px;padding:10px;margin:4px 8px;">';
+    h += '点击「+ 加入对比」添加更多法条';
+    h += '</div>';
+  }
+  zone.innerHTML = h;
+}
+
+// ============================================================
+// Bookmarks
+// ============================================================
+let _bookmarkArticleId = 0;
+let _selectedTags = [];
+
+function showBookmarkModal(articleId) {
+  _bookmarkArticleId = articleId;
+  _selectedTags = [];
+  document.querySelectorAll('.tag-select span').forEach(el => el.classList.remove('selected'));
+  document.getElementById('bookmark-tags').value = '';
+  document.getElementById('bookmark-note').value = '';
+  document.getElementById('bookmark-modal').classList.add('show');
+}
+
+function closeBookmarkModal() {
+  document.getElementById('bookmark-modal').classList.remove('show');
+}
+
+function toggleTag(el) {
+  el.classList.toggle('selected');
+  _selectedTags = [...document.querySelectorAll('.tag-select span.selected')].map(s => s.dataset.tag);
+  document.getElementById('bookmark-tags').value = _selectedTags.join(',');
+}
+
+async function saveBookmark() {
+  const tags = document.getElementById('bookmark-tags').value || _selectedTags.join(',');
+  const note = document.getElementById('bookmark-note').value;
+  await api('/api/bookmarks', {
+    method: 'POST',
+    body: JSON.stringify({ article_id: _bookmarkArticleId, tags, note }),
+  });
+  closeBookmarkModal();
+}
+
+// ============================================================
+// AI
+// ============================================================
+let aiVisible = true;
+function toggleAI() {
+  aiVisible = !aiVisible;
+  document.getElementById('ai-output').style.display = aiVisible ? 'block' : 'none';
+  document.getElementById('ai-toggle').textContent = aiVisible ? '收起' : '展开';
+}
+
+async function askAI() {
+  const q = document.getElementById('ai-input').value.trim();
+  if (!q) return;
+  await _doAI(q);
+}
+
+async function askAIWithContext() {
+  if (!STATE.currentArticleId) { alert('请先打开一条法条'); return; }
+  const data = await api(`/api/articles/${STATE.currentArticleId}`);
+  const q = document.getElementById('ai-input').value.trim() || '请解释本条的含义与适用场景';
+  const context = `【${data.doc_title} · ${data.article_num}】\n${data.content}`;
+  document.getElementById('ai-input').value = q;
+  await _doAI(q, context);
+}
+
+async function _doAI(query, context) {
+  const output = document.getElementById('ai-output');
+  output.style.display = 'block';
+  output.innerHTML += `<div style="margin-top:8px;"><b>你：</b>${esc(query)}</div><div><b>AI：</b>`;
+
+  document.getElementById('ai-ask-btn').disabled = true;
+  document.getElementById('ai-context-btn').disabled = true;
+  document.getElementById('ai-status').textContent = 'AI 思考中……';
+
+  const res = await fetch('/api/ai/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, context }),
+  });
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const data = JSON.parse(line);
+        if (data.text) {
+          output.innerHTML += esc(data.text);
+          output.scrollTop = output.scrollHeight;
+        }
+        if (data.error) {
+          output.innerHTML += `<span style="color:red;">\n[${esc(data.error)}]</span>`;
+        }
+      } catch(e) {}
+    }
+  }
+
+  output.innerHTML += '</div>';
+  document.getElementById('ai-ask-btn').disabled = false;
+  document.getElementById('ai-context-btn').disabled = false;
+  document.getElementById('ai-status').textContent = '';
+  document.getElementById('ai-input').value = '';
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+function hideAll() {
+  document.getElementById('home-area').style.display = 'none';
+  document.getElementById('results-area').style.display = 'none';
+  document.getElementById('reader-area').style.display = 'none';
+  document.getElementById('ref-panel').style.display = 'none';
+}
+
+// ============================================================
+// Init
+// ============================================================
+// Enter triggers search
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+// Load home
+showHome();
+</script>
+</body>
+</html>
