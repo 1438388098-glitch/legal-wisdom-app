@@ -49,9 +49,9 @@ CREATE INDEX IF NOT EXISTS idx_documents_title ON documents(title);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
     title, content, content=documents, content_rowid=id, tokenize='unicode61'
-    -- 注意：unicode61 将每个中文字符视为独立 token，不支持中文词组匹配。
-    -- 对于中文搜索，FTS5 可能返回 0 结果，此时 search.py 会自动降级
-    -- 为 LIKE 模糊搜索作为兜底。
+    -- 注意：unicode61 把连续的中文字符视为同一个 token（不做词级切分），
+    -- 中文子串查询通常无法命中 FTS 短语匹配；中文搜索实际依赖
+    -- search.py 的 LIKE 模糊匹配降级路径，FTS 主要对英文/数字 token 生效。
 );
 
 -- 法条关联表

@@ -57,7 +57,7 @@ def search(query, category=None, limit=100, offset=0, db_path=None):
             SELECT DISTINCT d.id, d.title, c.display_name AS category
             FROM documents d
             JOIN categories c ON d.category_id = c.id
-            WHERE d.content LIKE ? OR d.title LIKE ?
+            WHERE (d.content LIKE ? OR d.title LIKE ?)
         """
         like_params = [like_pattern, like_pattern]
         if category:
