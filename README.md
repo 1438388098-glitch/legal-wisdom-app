@@ -18,6 +18,7 @@ A local desktop application covering **257 Chinese laws and regulations**, suppo
 | 🔗 **Statute cross-references** | Related statutes suggested automatically while reading, one-click navigation |
 | 💬 **AI Q&A** | Connects to LLM APIs; ask questions grounded in the statute you are reading |
 | ⭐ **Bookmarks** | Bookmark frequently used statutes for quick lookup |
+| 🌐 **Bilingual UI** | Switch the interface between 中文 and English from the title-bar language menu; the choice is remembered |
 
 > **Retrieval caveat**: full-text search is a hybrid of SQLite FTS5 + LIKE — under the unicode61 tokenizer a run of consecutive Chinese characters counts as a single token, so Chinese substring queries are mainly served by the LIKE fuzzy fallback (English/number tokens can hit FTS and get highlighted). This is **not** semantic/vector retrieval; hybrid retrieval RAG with citation grounding is on the roadmap. The database is not committed due to size and redistribution boundaries; rebuild it from scratch per [docs/repro.md](docs/repro.md).
 
@@ -95,7 +96,7 @@ python3 build.py
 ```
 legal-wisdom-app/
 ├── main.py                    # Desktop entry point (PySide6)
-├── app.py                     # Flask web backend (optional)
+├── webapp.py                  # Flask web backend (optional)
 ├── app/
 │   └── main_window.py        # Main window
 ├── assets/

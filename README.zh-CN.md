@@ -18,6 +18,7 @@
 | 🔗 **法条关联** | 阅读时自动推荐相关法条，一键跳转 |
 | 💬 **AI 问答** | 接入大模型 API，支持结合当前法条提问 |
 | ⭐ **收藏夹** | 收藏常用法条，方便快速查找 |
+| 🌐 **双语界面** | 标题栏语言菜单一键切换 中文 / English，选择自动记忆 |
 
 > **检索口径说明**：全文搜索为 SQLite FTS5 + LIKE 混合检索——unicode61 分词下连续中文视为单一词元，中文子串查询主要由 LIKE 模糊匹配承担（英文/数字 token 可命中 FTS 并高亮），**不是**语义/向量检索；带引用溯源的混合检索 RAG 在演进计划中。数据库因体积与再分发边界不入库，从零重建见 [docs/repro.md](docs/repro.md)。
 
@@ -95,7 +96,7 @@ python3 build.py
 ```
 legal-wisdom-app/
 ├── main.py                    # 桌面端入口（PySide6）
-├── app.py                     # Flask Web 后端（可选）
+├── webapp.py                  # Flask Web 后端（可选）
 ├── app/
 │   └── main_window.py        # 主窗口
 ├── assets/

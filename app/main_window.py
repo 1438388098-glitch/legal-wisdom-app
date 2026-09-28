@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QComboBox, QTreeWidget, QTreeWidgetItem,
     QTextBrowser, QTabWidget, QSplitter, QListWidget, QListWidgetItem,
-    QFrame, QStatusBar, QDialog, QFormLayout, QMessageBox,
+    QFrame, QStatusBar, QDialog, QFormLayout, QMessageBox, QMenu,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QThread, QUrl, QTimer
 from PySide6.QtGui import QFont, QTextCursor, QColor
@@ -20,6 +20,7 @@ from data.database.search import (
     search, get_document, get_documents_by_category, get_categories,
 )
 from services.ai_service import ask_ai, load_config, save_config
+from app import i18n
 
 
 class SearchThread(QThread):
@@ -63,21 +64,23 @@ class AIThread(QThread):
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, lang=i18n.DEFAULT_LANG):
         super().__init__(parent)
         self.config = load_config()
-        self.setWindowTitle("设置")
+        self.S = i18n.STRINGS[lang]
+        self.setWindowTitle(self.S["dlg_settings_title"])
         self.setMinimumSize(450, 350)
         self.setModal(True)
         self._setup_ui()
         self._load_config()
 
     def _setup_ui(self):
+        S = self.S
         layout = QVBoxLayout(self)
         layout.setSpacing(20)
         layout.setContentsMargins(28, 28, 28, 28)
 
-        title = QLabel("AI 服务配置")
+        title = QLabel(S["dlg_ai_title"])
         title.setStyleSheet(
             "font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 600; color: #1a1a1a;"
         )
@@ -89,32 +92,32 @@ class SettingsDialog(QDialog):
         self.provider_combo = QComboBox()
         self.provider_combo.addItems(["deepseek", "openai", "siliconflow", "zhipu", "custom"])
         self.provider_combo.currentTextChanged.connect(self._on_provider_changed)
-        form.addRow("提供商", self.provider_combo)
+        form.addRow(S["dlg_provider"], self.provider_combo)
 
         self.api_key_input = QLineEdit()
         self.api_key_input.setPlaceholderText("sk-...")
         self.api_key_input.setEchoMode(QLineEdit.Password)
-        form.addRow("API Key", self.api_key_input)
+        form.addRow(S["dlg_api_key"], self.api_key_input)
 
         self.api_base_input = QLineEdit()
         self.api_base_input.setPlaceholderText("https://api.deepseek.com/v1")
-        form.addRow("接口地址", self.api_base_input)
+        form.addRow(S["dlg_api_base"], self.api_base_input)
 
         self.model_input = QLineEdit()
         self.model_input.setPlaceholderText("deepseek-chat")
-        form.addRow("模型名称", self.model_input)
+        form.addRow(S["dlg_model"], self.model_input)
 
         self.temp_input = QLineEdit()
         self.temp_input.setPlaceholderText("0.3")
-        form.addRow("温度 (0-2)", self.temp_input)
+        form.addRow(S["dlg_temperature"], self.temp_input)
 
         layout.addLayout(form)
 
         btn_box = QHBoxLayout()
         btn_box.addStretch()
-        save_btn = QPushButton("保存")
+        save_btn = QPushButton(S["dlg_save"])
         save_btn.clicked.connect(self._save)
-        cancel_btn = QPushButton("取消")
+        cancel_btn = QPushButton(S["dlg_cancel"])
         cancel_btn.clicked.connect(self.reject)
         btn_box.addWidget(cancel_btn)
         btn_box.addWidget(save_btn)
@@ -159,12 +162,12 @@ class SettingsDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("法律智库 · 个人法条库")
         self.setMinimumSize(1280, 800)
         self.resize(1400, 900)
 
         style_path = os.path.join(os.path.dirname(__file__), "..", "assets", "styles.qss")
-        self._style = open(style_path, "r", encoding="utf-8").read()
+        with open(style_path, "r", encoding="utf-8") as f:
+            self._style = f.read()
         self.setStyleSheet(self._style)
 
         self.current_doc_id = None
@@ -173,6 +176,9 @@ class MainWindow(QMainWindow):
         self._cat_cache = None
         self._current_content = ""
         self._current_related = None
+        self.lang = i18n.load_lang()
+        self._view = "welcome"
+        self._ai_expanded = True
 
         self._setup_ui()
         self._load_categories()
@@ -193,22 +199,36 @@ class MainWindow(QMainWindow):
         title_layout = QHBoxLayout(title_bar)
         title_layout.setContentsMargins(20, 8, 20, 8)
 
-        title_label = QLabel("法律智库")
-        title_label.setObjectName("titleLabel")
-        title_layout.addWidget(title_label)
+        self.title_label = QLabel()
+        self.title_label.setObjectName("titleLabel")
+        title_layout.addWidget(self.title_label)
 
-        sub = QLabel("个人法条库")
-        sub.setObjectName("titleSubLabel")
-        title_layout.addWidget(sub)
+        self.sub_label = QLabel()
+        self.sub_label.setObjectName("titleSubLabel")
+        title_layout.addWidget(self.sub_label)
 
         title_layout.addStretch()
 
-        self.bookmark_btn = QPushButton("收藏")
+        self.bookmark_btn = QPushButton()
         self.bookmark_btn.setObjectName("bookmarkBtn")
         self.bookmark_btn.clicked.connect(self._toggle_bookmark)
         title_layout.addWidget(self.bookmark_btn)
 
-        self.settings_btn = QPushButton("设置")
+        # 界面语言切换菜单（选择持久化到 ui_config.json，不入库）
+        self.lang_btn = QPushButton("语言 Language")
+        self.lang_btn.setObjectName("settingsBtn")
+        self.lang_btn.setToolTip("切换界面语言 / Switch UI language")
+        lang_menu = QMenu(self.lang_btn)
+        self._act_zh = lang_menu.addAction("中文")
+        self._act_en = lang_menu.addAction("English")
+        self._act_zh.setCheckable(True)
+        self._act_en.setCheckable(True)
+        self._act_zh.triggered.connect(lambda: self._switch_language("zh"))
+        self._act_en.triggered.connect(lambda: self._switch_language("en"))
+        self.lang_btn.setMenu(lang_menu)
+        title_layout.addWidget(self.lang_btn)
+
+        self.settings_btn = QPushButton()
         self.settings_btn.setObjectName("settingsBtn")
         self.settings_btn.clicked.connect(self._open_settings)
         title_layout.addWidget(self.settings_btn)
@@ -225,18 +245,14 @@ class MainWindow(QMainWindow):
 
         self.search_input = QLineEdit()
         self.search_input.setObjectName("searchInput")
-        self.search_input.setPlaceholderText(
-            "搜索法条，如「行政处罚」「正当防卫」「合同效力」……"
-        )
         self.search_input.returnPressed.connect(self._do_search)
         search_layout.addWidget(self.search_input, 1)
 
         self.category_combo = QComboBox()
         self.category_combo.setObjectName("categoryCombo")
-        self.category_combo.addItem("全部", "all")
         search_layout.addWidget(self.category_combo)
 
-        self.search_btn = QPushButton("搜索")
+        self.search_btn = QPushButton()
         self.search_btn.setObjectName("searchButton")
         self.search_btn.clicked.connect(self._do_search)
         search_layout.addWidget(self.search_btn)
@@ -254,9 +270,9 @@ class MainWindow(QMainWindow):
         side_layout = QVBoxLayout(sidebar)
         side_layout.setContentsMargins(0, 0, 0, 0)
 
-        side_title = QLabel("  分类浏览")
-        side_title.setObjectName("sidebarTitle")
-        side_layout.addWidget(side_title)
+        self.side_title = QLabel()
+        self.side_title.setObjectName("sidebarTitle")
+        side_layout.addWidget(self.side_title)
 
         self.category_tree = QTreeWidget()
         self.category_tree.setHeaderHidden(True)
@@ -288,7 +304,7 @@ class MainWindow(QMainWindow):
         self.result_list.itemClicked.connect(self._on_result_clicked)
         result_layout.addWidget(self.result_list)
 
-        self.content_tabs.addTab(self.result_widget, "搜索结果")
+        self.content_tabs.addTab(self.result_widget, "")
 
         # Tab: Reader
         self.reader_widget = QWidget()
@@ -309,7 +325,7 @@ class MainWindow(QMainWindow):
         self.doc_viewer.anchorClicked.connect(self._on_doc_link)
         reader_layout.addWidget(self.doc_viewer)
 
-        self.content_tabs.addTab(self.reader_widget, "文档阅读")
+        self.content_tabs.addTab(self.reader_widget, "")
 
         content_layout.addWidget(self.content_tabs)
         splitter.addWidget(content_area)
@@ -333,7 +349,7 @@ class MainWindow(QMainWindow):
         ai_control_layout = QHBoxLayout(ai_control_bar)
         ai_control_layout.setContentsMargins(8, 2, 8, 2)
         ai_control_layout.addStretch()
-        self.ai_expand_btn = QPushButton("收起")
+        self.ai_expand_btn = QPushButton()
         self.ai_expand_btn.setObjectName("expandButton")
         self.ai_expand_btn.clicked.connect(self._toggle_ai_panel)
         ai_control_layout.addWidget(self.ai_expand_btn)
@@ -346,11 +362,11 @@ class MainWindow(QMainWindow):
         ai_layout.setSpacing(8)
 
         ai_header = QHBoxLayout()
-        ai_title = QLabel("AI 法律问答")
-        ai_title.setStyleSheet(
+        self.ai_title_label = QLabel()
+        self.ai_title_label.setStyleSheet(
             "font-family: 'Noto Serif SC', serif; font-size: 14px; font-weight: 600; color: #1a1a1a;"
         )
-        ai_header.addWidget(ai_title)
+        ai_header.addWidget(self.ai_title_label)
 
         self.ai_status = QLabel("")
         self.ai_status.setStyleSheet("font-size: 11px; color: #aaa;")
@@ -363,16 +379,15 @@ class MainWindow(QMainWindow):
         ai_input_layout = QHBoxLayout()
         self.ai_input = QLineEdit()
         self.ai_input.setObjectName("aiInput")
-        self.ai_input.setPlaceholderText("输入法律问题，如「行政处罚有哪几种？」……")
         self.ai_input.returnPressed.connect(self._do_ai_query)
         ai_input_layout.addWidget(self.ai_input)
 
-        self.send_btn = QPushButton("发送")
+        self.send_btn = QPushButton()
         self.send_btn.setObjectName("sendButton")
         self.send_btn.clicked.connect(self._do_ai_query)
         ai_input_layout.addWidget(self.send_btn)
 
-        self.send_with_context_btn = QPushButton("结合当前法条")
+        self.send_with_context_btn = QPushButton()
         self.send_with_context_btn.setObjectName("contextButton")
         self.send_with_context_btn.clicked.connect(self._do_ai_query_with_context)
         ai_input_layout.addWidget(self.send_with_context_btn)
@@ -389,7 +404,64 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self._ai_container)
 
-        self.statusBar().showMessage("就绪 · 已收录 263 部法律法规")
+        self._apply_texts()
+        self.statusBar().showMessage(self._S()["status_ready"])
+
+    # --- i18n ---
+
+    def _S(self):
+        """当前界面语言的文案字典"""
+        return i18n.STRINGS[self.lang]
+
+    def _cat_display(self, cat_key, fallback):
+        """分类显示名：按界面语言翻译（cat_* 键），未知分类回退库内名称"""
+        return self._S().get("cat_" + cat_key, fallback)
+
+    def _apply_texts(self):
+        """按当前语言刷新全部界面框架文案（法条库数据内容不翻译）"""
+        S = self._S()
+
+        self.setWindowTitle(S["window_title"])
+        self.title_label.setText(S["app_name"])
+        self.sub_label.setText(S["app_sub"])
+        self.settings_btn.setText(S["settings_btn"])
+        self._act_zh.setChecked(self.lang == "zh")
+        self._act_en.setChecked(self.lang == "en")
+
+        self.search_input.setPlaceholderText(S["search_placeholder"])
+        self.search_btn.setText(S["search_btn"] if self.search_btn.isEnabled() else S["searching_btn"])
+        self.side_title.setText(S["sidebar_title"])
+
+        self.content_tabs.setTabText(0, S["tab_results"])
+        self.content_tabs.setTabText(1, S["tab_reader"])
+
+        self.ai_title_label.setText(S["ai_title"])
+        self.ai_input.setPlaceholderText(S["ai_placeholder"])
+        self.send_btn.setText(S["send_btn"])
+        self.send_with_context_btn.setText(S["send_ctx_btn"])
+        self.ai_expand_btn.setText(S["collapse_btn"] if self._ai_expanded else S["expand_btn"])
+
+        if self.current_doc_id:
+            self._update_bookmark_btn(self.current_doc_id)
+        else:
+            self.bookmark_btn.setText(S["bookmark_btn"])
+
+        self._load_categories()
+
+    def _switch_language(self, lang):
+        """切换界面语言并持久化（写入 ui_config.json，已被 .gitignore 排除）"""
+        if lang not in i18n.STRINGS or lang == self.lang:
+            return
+        self.lang = lang
+        i18n.save_lang(lang)
+        self._apply_texts()
+        # 无文档打开时刷新欢迎页/首页，让框架文案即时生效；文档正文属数据内容不重译
+        if self.current_doc_id is None:
+            if self._view == "home":
+                self._show_home()
+            else:
+                self._show_welcome()
+                self.statusBar().showMessage(self._S()["status_ready"])
 
     # --- Categories ---
 
@@ -400,7 +472,8 @@ class MainWindow(QMainWindow):
 
     def _load_categories(self):
         self.category_tree.clear()
-        root = QTreeWidgetItem(self.category_tree, ["全部"])
+        S = self._S()
+        root = QTreeWidgetItem(self.category_tree, [S["cat_all"]])
         root.setData(0, Qt.UserRole, "all")
         root.setExpanded(True)
 
@@ -420,52 +493,60 @@ class MainWindow(QMainWindow):
             name = cat["name"]
             display_name = cat["display_name"]
             cnt = count_map.get(name, (display_name, 0))[1]
-            item = QTreeWidgetItem(root, [f"{display_name}  ({cnt})"])
+            item = QTreeWidgetItem(root, [f"{self._cat_display(name, display_name)}  ({cnt})"])
             item.setData(0, Qt.UserRole, name)
 
-        fav_item = QTreeWidgetItem(self.category_tree, ["收藏夹"])
+        fav_item = QTreeWidgetItem(self.category_tree, [S["cat_bookmarks"]])
         fav_item.setData(0, Qt.UserRole, "bookmarks")
 
+        self.category_combo.clear()
+        self.category_combo.addItem(S["cat_all"], "all")
         for cat in self._get_categories():
-            self.category_combo.addItem(cat["display_name"], cat["name"])
+            self.category_combo.addItem(
+                self._cat_display(cat["name"], cat["display_name"]), cat["name"]
+            )
 
     # --- Welcome ---
 
     def _show_welcome(self):
-        self.doc_viewer.setHtml("""
+        S = self._S()
+        self._view = "welcome"
+        self.doc_viewer.setHtml(f"""
         <div style="text-align: center; padding: 80px 40px;">
             <h2 style="font-family: 'Noto Serif SC', serif; color: #1a1a1a;
                        font-size: 28px; font-weight: 600; margin-bottom: 8px;
                        letter-spacing: 2px;">
-                法律智库
+                {S['app_name']}
             </h2>
             <p style="font-family: 'Inter', 'Segoe UI', sans-serif;
                       color: #999; font-size: 15px; margin-bottom: 32px;">
-                个人法条库 · 全文检索 · AI 问答
+                {S['welcome_sub']}
             </p>
             <div style="width: 48px; height: 1px; background: #8B4513; margin: 0 auto 32px;"></div>
             <p style="font-family: 'Noto Serif SC', serif;
                       color: #aaa; font-size: 14px; line-height: 2.2;">
-                收录 263 部中国法律法规<br>
-                涵盖法律、行政法规、司法解释、监察法规<br>
-                支持全文搜索、分类浏览、法条关联与 AI 问答
+                {S['welcome_line1']}<br>
+                {S['welcome_line2']}<br>
+                {S['welcome_line3']}
             </p>
             <p style="font-family: 'Inter', 'Segoe UI', sans-serif;
                       color: #ccc; font-size: 12px; margin-top: 48px;">
-                在上方搜索框输入关键词，或从左侧分类浏览
+                {S['welcome_hint']}
             </p>
         </div>
         """)
 
     def _show_home(self):
         """显示首页：分类入口 + 最新法条速览"""
+        S = self._S()
+        self._view = "home"
         conn = get_connection()
         cursor = conn.cursor()
 
         # 构建分类区块
         cat_blocks = ""
         for cat in self._get_categories():
-            display_name = cat["display_name"]
+            display_name = self._cat_display(cat["name"], cat["display_name"])
             cat_key = cat["name"]
             cursor.execute("SELECT COUNT(*) FROM documents WHERE category_id=?", (cat["id"],))
             cnt = cursor.fetchone()[0]
@@ -484,7 +565,7 @@ class MainWindow(QMainWindow):
                 <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
                     <a href="cat://{cat_key}" style="font-size:15px;font-weight:600;color:#8B4513;
                            text-decoration:none;">{display_name}</a>
-                    <span style="font-size:11px;color:#aaa;">（{cnt} 部）</span>
+                    <span style="font-size:11px;color:#aaa;">{S['home_count'].format(count=cnt)}</span>
                 </div>
                 {items}
             </div>
@@ -497,20 +578,20 @@ class MainWindow(QMainWindow):
             <div style="text-align:center;padding:24px 0 28px 0;
                         border-bottom:1px solid #e8e8e8;margin-bottom:24px;">
                 <div style="font-size:22px;font-weight:600;color:#1a1a1a;letter-spacing:2px;
-                            font-family:'Noto Serif SC',serif;">法律智库</div>
-                <div style="font-size:12px;color:#aaa;margin-top:4px;">个人法条库 · 257 部法律法规</div>
+                            font-family:'Noto Serif SC',serif;">{S['app_name']}</div>
+                <div style="font-size:12px;color:#aaa;margin-top:4px;">{S['home_sub']}</div>
             </div>
             {cat_blocks}
             <div style="text-align:center;padding:16px 0;color:#ccc;font-size:12px;
                         border-top:1px solid #e8e8e8;margin-top:8px;">
-                PDF 文档解析可能存在格式偏差 · 内容仅供参考
+                {S['home_footer']}
             </div>
         </div>
         """
 
         self.doc_viewer.setHtml(html_out)
         self.content_tabs.setCurrentIndex(1)  # 切换到 Reader tab
-        self.statusBar().showMessage("首页 · 257 部法律法规")
+        self.statusBar().showMessage(S["status_home"])
 
     # --- Search ---
 
@@ -534,13 +615,13 @@ class MainWindow(QMainWindow):
             self._search_thread.wait(500)
 
         self.search_btn.setEnabled(False)
-        self.search_btn.setText("搜索中")
+        self.search_btn.setText(self._S()["searching_btn"])
         self.result_list.clear()
-        self.result_title.setText(f"搜索中: 「{query}」")
+        self.result_title.setText(self._S()["searching_title"].format(query=query))
 
         thread = SearchThread(query, cat)
         thread.finished.connect(lambda data, seq=my_seq: self._on_search_results(data, seq))
-        thread.error.connect(lambda e: self.statusBar().showMessage(f"搜索出错: {e}"))
+        thread.error.connect(lambda e: self.statusBar().showMessage(self._S()["search_error"].format(error=e)))
         thread.start()
         self._search_thread = thread
 
@@ -548,21 +629,22 @@ class MainWindow(QMainWindow):
         if seq != self._search_seq:
             return
         results, total = data
+        S = self._S()
 
         self.search_btn.setEnabled(True)
-        self.search_btn.setText("搜索")
+        self.search_btn.setText(S["search_btn"])
 
         self.result_list.clear()
 
         if not results:
-            self.result_title.setText("未找到结果")
-            no_item = QListWidgetItem("   未找到相关法条，请尝试其他关键词")
+            self.result_title.setText(S["no_results_title"])
+            no_item = QListWidgetItem(S["no_results_hint"])
             no_item.setFlags(no_item.flags() & ~Qt.ItemIsSelectable)
             no_item.setForeground(QColor("#aaa"))
             self.result_list.addItem(no_item)
             return
 
-        self.result_title.setText(f"搜索结果 ({total} 条，显示 {len(results)})")
+        self.result_title.setText(S["results_title"].format(total=total, shown=len(results)))
         for r in results:
             cat_name = r.get("category", "")
             title = r.get("title", "")
@@ -595,13 +677,13 @@ class MainWindow(QMainWindow):
         cat_display = cat_key
         for c in self._get_categories():
             if c["name"] == cat_key:
-                cat_display = c["display_name"]
+                cat_display = self._cat_display(cat_key, c["display_name"])
                 break
         self.result_title.setText(cat_display)
 
         docs = get_documents_by_category(cat_key)
         if not docs:
-            self.result_list.addItem("   该分类暂无数据")
+            self.result_list.addItem(self._S()["empty_category"])
             return
 
         for d in docs:
@@ -623,12 +705,13 @@ class MainWindow(QMainWindow):
         if not doc:
             return
 
+        self._view = "doc"
         self.current_doc_id = doc_id
         self.doc_title.setText(doc["title"])
 
         meta_parts = []
         if doc.get("date"):
-            meta_parts.append(f"{doc['date']} 发布")
+            meta_parts.append(self._S()["publish_date_label"].format(date=doc["date"]))
         if doc.get("category"):
             meta_parts.append(doc["category"])
         self.doc_meta.setText(" · ".join(meta_parts))
@@ -638,14 +721,15 @@ class MainWindow(QMainWindow):
         content_preview = content[:50000]
         self._current_content = content_preview
         if len(content) > 50000:
-            content_preview += "\n\n……（内容过长，已截断前 50KB）……"
-            content_preview += '\n\n<a href="expand:full" style="color:#8B4513;">显示全文</a>'
+            content_preview += "\n\n" + self._S()["truncated_notice"]
+            content_preview += ('\n\n<a href="expand:full" style="color:#8B4513;">'
+                                + self._S()["show_full_link"] + "</a>")
 
         html_out = self._format_doc_content(content_preview, None)
         self.doc_viewer.setHtml(html_out)
 
         self.content_tabs.setCurrentIndex(1)
-        self.statusBar().showMessage(f"正在阅读: {doc['title']}")
+        self.statusBar().showMessage(self._S()["reading_status"].format(title=doc["title"]))
         self._update_bookmark_btn(doc_id)
 
         # 关联法条后台加载（仍在 UI 线程中执行 SQL，TODO: 移至 QThread）
@@ -658,7 +742,9 @@ class MainWindow(QMainWindow):
                 self._current_related = related
                 html_out = self._format_doc_content(saved_content, related)
                 self.doc_viewer.setHtml(html_out)
-                self.statusBar().showMessage(f"正在阅读: {doc['title']}（{len(related)} 条关联法条）")
+                self.statusBar().showMessage(
+                    self._S()["reading_related_status"].format(title=doc["title"], count=len(related))
+                )
         QTimer.singleShot(100, load_related)
 
     def _on_doc_link(self, url):
@@ -693,7 +779,7 @@ class MainWindow(QMainWindow):
         self._current_content = content
         html_out = self._format_doc_content(content, getattr(self, '_current_related', None))
         self.doc_viewer.setHtml(html_out)
-        self.statusBar().showMessage(f"正在阅读: {doc['title']}（全文）")
+        self.statusBar().showMessage(self._S()["reading_full_status"].format(title=doc["title"]))
 
     def _get_related_documents(self, title, doc_id, limit=8):
         working_title = title
@@ -745,7 +831,7 @@ class MainWindow(QMainWindow):
                 <div style="font-size:11px;font-weight:600;color:#999;margin-bottom:8px;
                             letter-spacing:1px;text-transform:uppercase;
                             font-family:'Inter','Segoe UI',sans-serif;">
-                关联法条</div>
+                {self._S()["related_heading"]}</div>
                 {links}
             </div>
             """
@@ -776,7 +862,9 @@ class MainWindow(QMainWindow):
         cursor.execute("SELECT id FROM bookmarks WHERE doc_id=?", (doc_id,))
         exists = cursor.fetchone()
         conn.close()
-        self.bookmark_btn.setText("已收藏" if exists else "收藏")
+        self.bookmark_btn.setText(
+            self._S()["bookmarked_btn"] if exists else self._S()["bookmark_btn"]
+        )
 
     def _toggle_bookmark(self):
         if not self.current_doc_id:
@@ -790,8 +878,8 @@ class MainWindow(QMainWindow):
         if exists:
             cursor.execute("DELETE FROM bookmarks WHERE id=?", (exists[0],))
             conn.commit()
-            self.bookmark_btn.setText("收藏")
-            self.statusBar().showMessage("已取消收藏")
+            self.bookmark_btn.setText(self._S()["bookmark_btn"])
+            self.statusBar().showMessage(self._S()["bookmark_removed"])
         else:
             doc = get_document(self.current_doc_id)
             content_preview = doc["content"][:200] if doc else ""
@@ -800,14 +888,15 @@ class MainWindow(QMainWindow):
                 (self.current_doc_id, content_preview),
             )
             conn.commit()
-            self.bookmark_btn.setText("已收藏")
-            self.statusBar().showMessage("已添加到收藏夹")
+            self.bookmark_btn.setText(self._S()["bookmarked_btn"])
+            self.statusBar().showMessage(self._S()["bookmark_added"])
 
         conn.close()
 
     def _show_bookmarks(self):
+        S = self._S()
         self.result_list.clear()
-        self.result_title.setText("收藏夹")
+        self.result_title.setText(S["bookmarks_title"])
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
@@ -820,7 +909,7 @@ class MainWindow(QMainWindow):
         conn.close()
 
         if not rows:
-            no_item = QListWidgetItem("   收藏夹为空，浏览法条时点击「收藏」按钮")
+            no_item = QListWidgetItem(S["bookmarks_empty"])
             no_item.setFlags(no_item.flags() & ~Qt.ItemIsSelectable)
             no_item.setForeground(QColor("#aaa"))
             self.result_list.addItem(no_item)
@@ -829,7 +918,7 @@ class MainWindow(QMainWindow):
         for row in rows:
             title = row[2]
             date_str = str(row[4] or "")[:10]
-            display = f"{title}  (收藏于 {date_str})"
+            display = f"{title}{S['bookmarked_on'].format(date=date_str)}"
             item = QListWidgetItem(display)
             item.setData(Qt.UserRole, row[1])
             self.result_list.addItem(item)
@@ -844,18 +933,20 @@ class MainWindow(QMainWindow):
             return
         visible = ai_panel.isVisible()
         ai_panel.setVisible(not visible)
-        self.ai_expand_btn.setText("展开" if visible else "收起")
+        self._ai_expanded = not visible
+        S = self._S()
+        self.ai_expand_btn.setText(S["expand_btn"] if visible else S["collapse_btn"])
 
     def _do_ai_query(self):
         self._ai_query(context=None)
 
     def _do_ai_query_with_context(self):
         if not self.current_doc_id:
-            self.statusBar().showMessage("请先打开一个法条文档")
+            self.statusBar().showMessage(self._S()["open_doc_first"])
             return
         doc = get_document(self.current_doc_id)
         if not doc:
-            self.statusBar().showMessage("文档不存在")
+            self.statusBar().showMessage(self._S()["doc_not_found"])
             return
         context = f"[{doc['title']}]\n{doc['content'][:4000]}"
         self._ai_query(context=context)
@@ -870,17 +961,17 @@ class MainWindow(QMainWindow):
 
         config = load_config()
         if not config.get("api_key"):
-            QMessageBox.warning(self, "配置提醒",
-                "请先在设置中配置 API Key。\n\n推荐：DeepSeek (api.deepseek.com)")
+            QMessageBox.warning(self, self._S()["config_warn_title"],
+                                self._S()["config_warn_body"])
             self._open_settings()
             return
 
         self.ai_running = True
         self.send_btn.setEnabled(False)
         self.send_with_context_btn.setEnabled(False)
-        self.ai_status.setText("AI 思考中……")
+        self.ai_status.setText(self._S()["ai_thinking"])
 
-        self.ai_output.append(f"\n你：{query}\n")
+        self.ai_output.append(self._S()["ai_you"].format(query=query))
 
         def on_chunk(text):
             if not _check_seq():
@@ -908,8 +999,8 @@ class MainWindow(QMainWindow):
             if not _check_seq():
                 return
             _enable_ai_buttons()
-            self.ai_status.setText("出错")
-            self.ai_output.append(f"\n错误：{err}\n")
+            self.ai_status.setText(self._S()["ai_error_status"])
+            self.ai_output.append(self._S()["ai_error_msg"].format(error=err))
 
         # 清理旧线程（quit() 不中断同步 run()，断开信号避免过期回调）
         if hasattr(self, '_ai_thread') and self._ai_thread.isRunning():
@@ -929,7 +1020,7 @@ class MainWindow(QMainWindow):
         self.ai_input.clear()
 
     def _open_settings(self):
-        dlg = SettingsDialog(self)
+        dlg = SettingsDialog(self, lang=self.lang)
         dlg.exec()
 
     def closeEvent(self, event):
