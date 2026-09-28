@@ -22,6 +22,14 @@ A local desktop application covering **257 Chinese laws and regulations**, suppo
 
 > **Retrieval caveat**: full-text search is a hybrid of SQLite FTS5 + LIKE — under the unicode61 tokenizer a run of consecutive Chinese characters counts as a single token, so Chinese substring queries are mainly served by the LIKE fuzzy fallback (English/number tokens can hit FTS and get highlighted). This is **not** semantic/vector retrieval; hybrid retrieval RAG with citation grounding is on the roadmap. The database is not committed due to size and redistribution boundaries; rebuild it from scratch per [docs/repro.md](docs/repro.md).
 
+## Screenshots
+
+| 中文界面 | English UI |
+|----------|------------|
+| ![Chinese UI](docs/screenshots/main-zh.png) | ![English UI](docs/screenshots/main-en.png) |
+
+> Both screenshots are real offscreen renders of the desktop app (PySide6), showing a search for "正当防卫" (justifiable defense). They use a lightweight **demo database of 7 public-law excerpts**, not the full 87MB corpus. The bilingual switch covers UI chrome only — statute content itself is not translated.
+
 ## Data sources
 
 - **Statutes** (70) — single laws such as the Foreign Investment Law, the Fire Protection Law and the Construction Law
