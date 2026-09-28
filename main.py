@@ -2,7 +2,7 @@
 """法律智库 - 个人法条库入口
 
 启动方式:
-  源码:   C:\\Users\\20579\\AppData\\Local\\Programs\\Python\\Python313\\python.exe main.py
+  源码:   python main.py
   或双击: run.bat
   EXE:    dist\\法律智库\\法律智库.exe
 """

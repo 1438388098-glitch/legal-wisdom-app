@@ -1,8 +1,10 @@
 # ⚖️ 法律智库 · 个人法条库
 
+> **English TL;DR** — A local desktop statute library: 257 Chinese laws & regulations with SQLite FTS5 full-text search, cross-reference suggestions between articles, and LLM Q&A grounded in the article you're reading. The corpus is excluded from the repo for licensing/size — **fully reproducible**: rebuild the whole 87MB database from public sources with one documented pipeline ([docs/repro.md](docs/repro.md)). Hybrid retrieval with citation grounding evolves in [statute-rag](https://github.com/1438388098-glitch/statute-rag).
+
 **收录 257 部中国法律法规的本地桌面应用，支持全文搜索、AI 问答、法条关联浏览。**
 
-> ⚠️ **数据缺口说明**：宪法、民法典、刑法等核心法典暂未入库（原始语料缺失），已知缺口与补数重建步骤见 [docs/repro.md](docs/repro.md)。
+> ℹ️ **数据可复现**：宪法、民法典、刑法等核心法典暂未入库（原始语料缺失）。数据库不入库是体积与再分发边界的主动取舍，全部 87MB 数据可按 [docs/repro.md](docs/repro.md) 从官方公开渠道一键重建。
 
 ## 功能
 
@@ -96,7 +98,8 @@ python3 build.py
 
 ```
 legal-wisdom-app/
-├── main.py                    # 入口
+├── main.py                    # 桌面端入口（PySide6）
+├── app.py                     # Flask Web 后端（可选）
 ├── app/
 │   └── main_window.py        # 主窗口
 ├── assets/
@@ -107,6 +110,9 @@ legal-wisdom-app/
 ├── services/
 │   ├── ai_service.py         # AI API 调用
 │   └── law_refs.py           # 法条关联
+├── static/                   # Web 端静态资源
+├── tests/                    # 单元测试（检索主路径 + 法条关联）
 ├── build.py                  # 打包脚本
+├── run.bat                   # 一键启动
 └── requirements.txt
 ```
