@@ -87,6 +87,14 @@ python build.py   # 或 pyinstaller 法律智库.spec
 pip install PySide6 pdfminer.six python-docx pyinstaller
 ```
 
+### 运行测试
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+检索与法条关联测试会自建临时 SQLite 库，无需本地数据即可运行。三项真实库集成用例在未入库的 `data/database/legal.db` 缺失时按原因跳过；按 [docs/repro.md](docs/repro.md) 重建数据库后即可运行。
+
 ### 导入数据
 
 ```bash

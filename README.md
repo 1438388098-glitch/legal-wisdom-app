@@ -87,6 +87,14 @@ On first launch, a data directory is created under `%USERPROFILE%\.法律智库\
 pip install PySide6 pdfminer.six python-docx pyinstaller
 ```
 
+### Running the tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Search and cross-reference tests build their own temporary SQLite databases, so they run without any local data. The three real-database integration checks skip with a reason when the uncommitted `data/database/legal.db` is absent; rebuild that database per [docs/repro.md](docs/repro.md) to run them.
+
 ### Import data
 
 ```bash

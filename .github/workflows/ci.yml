@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # PySide6 GUI self-checks instantiate widgets without an event loop; run them headless.
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Qt's offscreen platform plugin links against libEGL/libGL, which the runner image does not ship by default.
+      - name: Install Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # The full 87MB statute DB is not committed (see docs/repro.md). The three
+      # RealDbIntegrationTest cases skip with a reason when data/database/legal.db is absent.
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
